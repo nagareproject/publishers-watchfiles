@@ -10,22 +10,25 @@
 import time
 from watchdog import observers, events
 
-from nagare.server import publishers
+from nagare.server import publisher
 
 
-class Publisher(publishers.Publisher):
+class Publisher(publisher.Publisher):
 
-    CONFIG_SPEC = {
-        'directory': 'string',
-        'recursive': 'boolean(default=False)',
-        'patterns': 'list(default=None)', 'ignore_patterns': 'list(default=None)',
-        'ignore_directories': 'boolean(default=False)',
-        'case_sensitive': 'boolean(default=True)'
-    }
+    CONFIG_SPEC = dict(
+        publisher.Publisher.CONFIG_SPEC,
+        directory='string',
+        recursive='boolean(default=False)',
+        patterns='list(default=None)',
+        ignore_patterns='list(default=None)',
+        ignore_directories='boolean(default=False)',
+        case_sensitive='boolean(default=True)'
+    )
 
     def _serve(self, app, directory, recursive, **config):
         event_handler = events.PatternMatchingEventHandler(**config)
-        event_handler.on_any_event = lambda event: app(
+        event_handler.on_any_event = lambda event: self.start_handle_request(
+            app,
             event_type=event.event_type,
             src_path=event.src_path,
             is_directory=event.is_directory,
