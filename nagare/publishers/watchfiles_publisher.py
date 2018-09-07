@@ -7,6 +7,7 @@
 # this distribution.
 # --
 
+import os
 import time
 from watchdog import observers, events
 
@@ -22,10 +23,14 @@ class Publisher(publisher.Publisher):
         patterns='list(default=None)',
         ignore_patterns='list(default=None)',
         ignore_directories='boolean(default=False)',
-        case_sensitive='boolean(default=True)'
+        case_sensitive='boolean(default=True)',
+        create='boolean(default=True)'
     )
 
-    def _serve(self, app, directory, recursive, **config):
+    def _serve(self, app, directory, create, recursive, **config):
+        if not os.path.exists(directory) and create:
+            os.mkdir(directory)
+
         event_handler = events.PatternMatchingEventHandler(**config)
         event_handler.on_any_event = lambda event: self.start_handle_request(
             app,
@@ -38,7 +43,7 @@ class Publisher(publisher.Publisher):
         observer = observers.Observer()
         observer.schedule(event_handler, directory, recursive=recursive)
 
-        print time.strftime('%x %X -', time.localtime()), observer.__class__.__name__, 'watching', directory
+        print('%s %s - watching %s' % (time.strftime('%x %X', time.localtime()), observer.__class__.__name__, directory))
 
         observer.start()
 
