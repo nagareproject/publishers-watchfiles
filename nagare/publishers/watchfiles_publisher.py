@@ -9,16 +9,28 @@
 
 import os
 import time
-from watchdog import observers, events
+from watchdog import events
+from watchdog.observers import api
 
-from nagare.server import publisher
+from nagare.server import reference, publisher
 
 
 class Publisher(publisher.Publisher):
     """Watch a directory for files modifications events"""
 
+    OBSERVERS = {
+        'auto': 'watchdog.observers:Observer',
+        'inotify': 'watchdog.observers.inotify:InotifyObserver',
+        'fsevents': 'watchdog.observers.fsevents:FSEventsObserver',
+        'kqueue': 'watchdog.observers.kqueue:KqueueObserver',
+        'winapi': 'watchdog.observers.read_directory_changes:WindowsApiObserver',
+        'polling': 'watchdog.observers.polling:PollingObserver'
+    }
+
     CONFIG_SPEC = dict(
         publisher.Publisher.CONFIG_SPEC,
+        observer='string(default="auto")',
+        timeout='integer(default={})'.format(api.DEFAULT_OBSERVER_TIMEOUT),
         directory='string(help="directory to watch")',
         recursive='boolean(default=False, help="watch the whole directories tree starting at ``directory``")',
         patterns='list(default=None, help="files patterns to watch")',
@@ -27,6 +39,10 @@ class Publisher(publisher.Publisher):
         case_sensitive='boolean(default=True, help="match/ignore patterns are case sensitive")',
         create='boolean(default=True, help="create ``directory`` if it doesn\'t exist")'
     )
+
+    def __init__(self, name, dist, services_service, observer, timeout, **config):
+        services_service(super(Publisher, self).__init__, name, dist, observer=observer, timeout=timeout, **config)
+        self.observer = reference.load_object(observer if ':' in observer else self.OBSERVERS[observer])[0](timeout)
 
     def generate_banner(self):
         """Generate the banner to display on start
@@ -38,7 +54,13 @@ class Publisher(publisher.Publisher):
         directory = self.plugin_config['directory'] + ('/**' if self.plugin_config['recursive'] else '')
         return banner + ' on events from directory `{}`'.format(directory)
 
-    def _serve(self, app, directory, create, recursive, services_service, **config):
+    def _serve(
+        self,
+        app,
+        directory, create, recursive,
+        patterns, ignore_patterns, ignore_directories, case_sensitive,
+        services_service, **config
+    ):
         """Start the publisher
 
         Args:
@@ -58,7 +80,9 @@ class Publisher(publisher.Publisher):
         # Keep only the configuration options specifics to this publisher
         config = {k: v for k, v in config.items() if k not in publisher.Publisher.CONFIG_SPEC}
 
-        event_handler = events.PatternMatchingEventHandler(**config)
+        event_handler = events.PatternMatchingEventHandler(
+            patterns, ignore_patterns, ignore_directories, case_sensitive
+        )
 
         # Keywords passed to the application:
         #  - ``event_type``: type of the event (``moved``, ``deleted``, ``created``, ``modified`` or ``closed``)
@@ -74,15 +98,13 @@ class Publisher(publisher.Publisher):
             dest_path=getattr(event, 'dest_path', None)
         )
 
-        observer = observers.Observer()
-        observer.schedule(event_handler, directory, recursive=recursive)
-
-        observer.start()
+        self.observer.schedule(event_handler, directory, recursive=recursive)
+        self.observer.start()
 
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
-            observer.stop()
+            self.observer.stop()
 
-        observer.join()
+        self.observer.join()
