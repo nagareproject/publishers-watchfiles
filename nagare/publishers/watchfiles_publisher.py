@@ -9,6 +9,8 @@
 
 import os
 import time
+from functools import partial
+
 from watchdog import events
 from watchdog.observers import api
 
@@ -54,6 +56,24 @@ class Publisher(publisher.Publisher):
         directory = self.plugin_config['directory'] + ('/**' if self.plugin_config['recursive'] else '')
         return banner + ' on events from directory `{}`'.format(directory)
 
+    def handle_event(self, app, services, event):
+        # Keywords passed to the application:
+        #  - ``event_type``: type of the event (``moved``, ``deleted``, ``created``, ``modified`` or ``closed``)
+        #  - ``src_path``: path of the modified file/directory
+        #  - ``is_directory``: ``True`` if the event was emitted for a directory
+        #  - ``dest_path``: in case of ``moved`` event, the new file/directory path
+        try:
+            self.start_handle_request(
+                app,
+                services,
+                event_type=event.event_type,
+                src_path=event.src_path,
+                is_directory=event.is_directory,
+                dest_path=getattr(event, 'dest_path', None)
+            )
+        except Exception:
+            pass
+
     def _serve(
         self,
         app,
@@ -83,20 +103,7 @@ class Publisher(publisher.Publisher):
         event_handler = events.PatternMatchingEventHandler(
             patterns, ignore_patterns, ignore_directories, case_sensitive
         )
-
-        # Keywords passed to the application:
-        #  - ``event_type``: type of the event (``moved``, ``deleted``, ``created``, ``modified`` or ``closed``)
-        #  - ``src_path``: path of the modified file/directory
-        #  - ``is_directory``: ``True`` if the event was emitted for a directory
-        #  - ``dest_path``: in case of ``moved`` event, the new file/directory path
-        event_handler.on_any_event = lambda event: self.start_handle_request(
-            app,
-            services_service,
-            event_type=event.event_type,
-            src_path=event.src_path,
-            is_directory=event.is_directory,
-            dest_path=getattr(event, 'dest_path', None)
-        )
+        event_handler.on_any_event = partial(self.handle_event, app, services_service)
 
         self.observer.schedule(event_handler, directory, recursive=recursive)
         self.observer.start()
