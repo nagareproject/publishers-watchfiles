@@ -1,0 +1,2 @@
+[nagare.publishers]
+watchfiles = nagare.publishers.watchfiles_publisher:Publisher

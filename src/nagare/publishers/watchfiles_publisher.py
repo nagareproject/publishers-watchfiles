@@ -1,5 +1,5 @@
 # --
-# Copyright (c) 2008-2022 Net-ng.
+# Copyright (c) 2008-2023 Net-ng.
 # All rights reserved.
 #
 # This software is licensed under the BSD License, as described in
@@ -7,18 +7,17 @@
 # this distribution.
 # --
 
+from functools import partial
 import os
 import time
-from functools import partial
 
+from nagare.server import publisher, reference
 from watchdog import events
 from watchdog.observers import api
 
-from nagare.server import reference, publisher
-
 
 class Publisher(publisher.Publisher):
-    """Watch a directory for files modifications events"""
+    """Watch a directory for files modifications events."""
 
     OBSERVERS = {
         'auto': 'watchdog.observers:Observer',
@@ -26,7 +25,7 @@ class Publisher(publisher.Publisher):
         'fsevents': 'watchdog.observers.fsevents:FSEventsObserver',
         'kqueue': 'watchdog.observers.kqueue:KqueueObserver',
         'winapi': 'watchdog.observers.read_directory_changes:WindowsApiObserver',
-        'polling': 'watchdog.observers.polling:PollingObserver'
+        'polling': 'watchdog.observers.polling:PollingObserver',
     }
 
     CONFIG_SPEC = dict(
@@ -39,7 +38,7 @@ class Publisher(publisher.Publisher):
         ignore_patterns='list(default=None, help="files patterns to ignore")',
         ignore_directories='boolean(default=False, help="ignore directories modifications events")',
         case_sensitive='boolean(default=True, help="match/ignore patterns are case sensitive")',
-        create='boolean(default=True, help="create ``directory`` if it doesn\'t exist")'
+        create='boolean(default=True, help="create ``directory`` if it doesn\'t exist")',
     )
 
     def __init__(self, name, dist, services_service, observer, timeout, **config):
@@ -47,7 +46,7 @@ class Publisher(publisher.Publisher):
         self.observer = reference.load_object(observer if ':' in observer else self.OBSERVERS[observer])[0](timeout)
 
     def generate_banner(self):
-        """Generate the banner to display on start
+        """Generate the banner to display on start.
 
         Returns:
             the banner
@@ -69,19 +68,25 @@ class Publisher(publisher.Publisher):
                 event_type=event.event_type,
                 src_path=event.src_path,
                 is_directory=event.is_directory,
-                dest_path=getattr(event, 'dest_path', None)
+                dest_path=getattr(event, 'dest_path', None),
             )
         except Exception:
-            pass
+            pass  # noqa: S110
 
     def _serve(
         self,
         app,
-        directory, create, recursive,
-        patterns, ignore_patterns, ignore_directories, case_sensitive,
-        services_service, **config
+        directory,
+        create,
+        recursive,
+        patterns,
+        ignore_patterns,
+        ignore_directories,
+        case_sensitive,
+        services_service,
+        **config,
     ):
-        """Start the publisher
+        """Start the publisher.
 
         Args:
             app (nagare.server.base_application): the application to receive the files modifications events
