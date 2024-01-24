@@ -1,5 +1,5 @@
 # --
-# Copyright (c) 2008-2023 Net-ng.
+# Copyright (c) 2008-2024 Net-ng.
 # All rights reserved.
 #
 # This software is licensed under the BSD License, as described in
@@ -7,13 +7,14 @@
 # this distribution.
 # --
 
-from functools import partial
 import os
 import time
+from functools import partial
 
-from nagare.server import publisher, reference
 from watchdog import events
 from watchdog.observers import api
+
+from nagare.server import publisher, reference
 
 
 class Publisher(publisher.Publisher):
@@ -70,8 +71,8 @@ class Publisher(publisher.Publisher):
                 is_directory=event.is_directory,
                 dest_path=getattr(event, 'dest_path', None),
             )
-        except Exception:
-            pass  # noqa: S110
+        except Exception:  # noqa: S110
+            pass
 
     def _serve(
         self,
