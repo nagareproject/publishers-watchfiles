@@ -1,5 +1,5 @@
 # --
-# Copyright (c) 2008-2024 Net-ng.
+# Copyright (c) 2008-2025 Net-ng.
 # All rights reserved.
 #
 # This software is licensed under the BSD License, as described in
@@ -29,22 +29,23 @@ class Publisher(publisher.Publisher):
         'polling': 'watchdog.observers.polling:PollingObserver',
     }
 
-    CONFIG_SPEC = dict(
-        publisher.Publisher.CONFIG_SPEC,
-        observer='string(default="auto")',
-        timeout='integer(default={})'.format(api.DEFAULT_OBSERVER_TIMEOUT),
-        directory='string(help="directory to watch")',
-        recursive='boolean(default=False, help="watch the whole directories tree starting at ``directory``")',
-        patterns='list(default=None, help="files patterns to watch")',
-        ignore_patterns='list(default=None, help="files patterns to ignore")',
-        ignore_directories='boolean(default=False, help="ignore directories modifications events")',
-        case_sensitive='boolean(default=True, help="match/ignore patterns are case sensitive")',
-        create='boolean(default=True, help="create ``directory`` if it doesn\'t exist")',
-    )
+    CONFIG_SPEC = publisher.Publisher.CONFIG_SPEC | {
+        'observer': 'string(default="auto")',
+        'timeout': 'integer(default={})'.format(api.DEFAULT_OBSERVER_TIMEOUT),
+        'directory': 'string(help="directory to watch")',
+        'recursive': 'boolean(default=False, help="watch the whole directories tree starting at ``directory``")',
+        'patterns': 'list(default=None, help="files patterns to watch")',
+        'ignore_patterns': 'list(default=None, help="files patterns to ignore")',
+        'ignore_directories': 'boolean(default=False, help="ignore directories modifications events")',
+        'case_sensitive': 'boolean(default=True, help="match/ignore patterns are case sensitive")',
+        'create': 'boolean(default=True, help="create ``directory`` if it doesn\'t exist")',
+    }
 
     def __init__(self, name, dist, services_service, observer, timeout, **config):
-        services_service(super(Publisher, self).__init__, name, dist, observer=observer, timeout=timeout, **config)
-        self.observer = reference.load_object(observer if ':' in observer else self.OBSERVERS[observer])[0](timeout)
+        services_service(super().__init__, name, dist, observer=observer, timeout=timeout, **config)
+        self.observer = reference.load_object(observer if ':' in observer else self.OBSERVERS[observer])[0](
+            timeout=timeout
+        )
 
     def generate_banner(self):
         """Generate the banner to display on start.
@@ -52,7 +53,7 @@ class Publisher(publisher.Publisher):
         Returns:
             the banner
         """
-        banner = super(Publisher, self).generate_banner()
+        banner = super().generate_banner()
         directory = self.plugin_config['directory'] + ('/**' if self.plugin_config['recursive'] else '')
         return banner + ' on events from directory `{}`'.format(directory)
 
@@ -98,7 +99,7 @@ class Publisher(publisher.Publisher):
         Returns:
             str: the banner
         """
-        super(Publisher, self)._serve(app)
+        super()._serve(app)
 
         if not os.path.exists(directory) and create:
             os.mkdir(directory)
@@ -107,7 +108,10 @@ class Publisher(publisher.Publisher):
         config = {k: v for k, v in config.items() if k not in publisher.Publisher.CONFIG_SPEC}
 
         event_handler = events.PatternMatchingEventHandler(
-            patterns, ignore_patterns, ignore_directories, case_sensitive
+            patterns=patterns,
+            ignore_patterns=ignore_patterns,
+            ignore_directories=ignore_directories,
+            case_sensitive=case_sensitive,
         )
         event_handler.on_any_event = partial(self.handle_event, app, services_service)
 
